@@ -6,23 +6,36 @@ import string
 def random_name(n=6):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(n))
 
-content = """//阁下好手段，还请高抬贵手，放小弟一马，都是百度上谷歌来的，没啥价值，去扒别人的源吧。
-//此多仓接口列表为公众号【杰翔易达】为粉丝提供便利整理而成，如有冒犯各位接口所属大神，请联系删除。
-{
+config = {
     "urls": [
-         {
-            "url": "https://tv.菜妮丝.top",
-            "name": "小苹果盒子"
-        },
-        {
-            "url": "http://tvbox.王二小放牛娃.top",
-            "name": "王二小"
-        },
-        {
-            "url": "http://肥猫.com",
-            "name": "肥猫"
-        },
-        {
+        {"url": "https://tv.菜妮丝.top", "name": "小苹果盒子"},
+        {"url": "http://tvbox.王二小放牛娃.top", "name": "王二小"},
+        {"url": "http://肥猫.com", "name": "肥猫"},
+        {"url": "https://盒子迷.top/禁止贩卖", "name": "盒子迷"},
+        {"url": "https://tv.菜妮丝.top", "name": "菜妮丝线路"},
+        {"url": "https://gh-proxy.com/https://raw.githubusercontent.com/guot55/yg/main/pg/bh.json", "name": "寳盒"},
+        {"url": "http://www.饭太硬.com/tv", "name": "饭太硬1"},
+        {"url": "http://www.饭太硬.net/tv", "name": "饭太硬2"},
+        {"url": "http://www.饭太硬.art/tv", "name": "饭太硬3"},
+        {"url": "http://fty.xxooo.cf/tv", "name": "饭太硬4"},
+        {"url": "http://fty.888484.xyz/tv", "name": "饭太硬5"}
+    ]
+}
+
+# 生成目录结构（和 d.kstore.dev 一模一样）
+os.makedirs("download/1/tvbox", exist_ok=True)
+fname = "download/1/tvbox/source.json"   # 固定文件名，URL 不变
+
+with open(fname, "w", encoding="utf-8") as f:
+    json.dump(config, f, ensure_ascii=False, indent=4)
+
+print("✅ 生成成功:", fname)
+
+# 验证 JSON 合法性
+with open(fname, "r", encoding="utf-8") as f:
+    data = json.load(f)
+    print("✅ JSON 验证通过，共", len(data["urls"]), "条接口")
+
             "url": "https://盒子迷.top/禁止贩卖",
             "name": "盒子迷"
         },
