@@ -69,6 +69,16 @@
             list-style: none;
             margin-top: 16px;
         }
+        .notice-box {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 16px 20px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
         .source-list li {
             display: flex;
             justify-content: space-between;
@@ -123,6 +133,12 @@
         </div>
     </div>
 
+    <!-- 声明 -->
+    <div class="card">
+        <h2>⚠️ 免责声明</h2>
+        <div id="noticeContent"><p>加载中...</p></div>
+    </div>
+
     <!-- 接口列表 -->
     <div class="card">
         <h2>📋 当前可用线路 <span id="countBadge" class="badge">-- 条</span></h2>
@@ -153,6 +169,17 @@ async function loadConfig() {
         const list = document.getElementById('sourceList');
         document.getElementById('countBadge').textContent = data.urls.length + ' 条';
 
+        // 展示声明
+        if (data.notice) {
+            const noticeHtml = data.notice
+                .replace(/
+
+/g, '<br><br>')
+                .replace(/【杰翔易达】/g, '<span style="color:#ffd700;font-weight:bold">【杰翔易达】</span>');
+            document.getElementById('noticeContent').innerHTML = '<div class="notice-box">' + noticeHtml + '</div>';
+        }
+        
+        // 展示线路列表
         list.innerHTML = data.urls.map((s, i) => `
             <li>
                 <span class="source-name">${i + 1}. ${s.name}</span>
