@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TVBox 配置接口</title>
+</head>
+<body>
+    <pre id="config"></pre>
+    <script>
+        fetch('/tvbox.json')
+            .then(r => r.json())
+            .then(d => document.getElementById('config').textContent = JSON.stringify(d, null, 2))
+            .catch(() => document.getElementById('config').textContent = '配置加载中...');
+    </script>
+</body>
+</html>

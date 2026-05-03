@@ -6,6 +6,7 @@ import string
 def random_name(n=6):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(n))
 
+# 多仓接口列表（和 d.kstore.dev 样品格式一致）
 config = {
     "urls": [
         {"url": "https://tv.菜妮丝.top", "name": "小苹果盒子"},
@@ -24,7 +25,7 @@ config = {
 
 # 生成目录结构（和 d.kstore.dev 一模一样）
 os.makedirs("download/1/tvbox", exist_ok=True)
-fname = "download/1/tvbox/source.json"   # 固定文件名，URL 不变
+fname = f"download/1/tvbox/{random_name()}.json"
 
 with open(fname, "w", encoding="utf-8") as f:
     json.dump(config, f, ensure_ascii=False, indent=4)
@@ -35,44 +36,3 @@ print("✅ 生成成功:", fname)
 with open(fname, "r", encoding="utf-8") as f:
     data = json.load(f)
     print("✅ JSON 验证通过，共", len(data["urls"]), "条接口")
-
-            "url": "https://盒子迷.top/禁止贩卖",
-            "name": "盒子迷"
-        },
-        {
-            "url": "https://tv.菜妮丝.top",
-            "name": "菜妮丝线路"
-        },
-        {
-            "url": "https://gh-proxy.com/https://raw.githubusercontent.com/guot55/yg/main/pg/bh.json",
-            "name": "寳盒"
-        },
-        {
-            "url": "http://www.饭太硬.com/tv",
-            "name": "饭太硬1"
-        },
-        {
-            "url": "http://www.饭太硬.net/tv",
-            "name": "饭太硬2"
-        },
-        {
-            "url": "http://www.饭太硬.art/tv",
-            "name": "饭太硬3"
-        },
-        {
-            "url": "http://fty.xxooo.cf/tv",
-            "name": "饭太硬4"
-        },
-        {
-            "url": "http://fty.888484.xyz/tv",
-            "name": "饭太硬5"
-        }
-    ]
-}"""
-
-os.makedirs("download/1/tvbox", exist_ok=True)
-fname = f"download/1/tvbox/{random_name()}.json"
-with open(fname, "w", encoding="utf-8") as f:
-    f.write(content)
-
-print("✅ 生成成功:", fname)
