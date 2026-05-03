@@ -25,7 +25,7 @@ config = {
 
 # 生成目录结构（和 d.kstore.dev 一模一样）
 os.makedirs("download/1/tvbox", exist_ok=True)
-fname = f"download/1/tvbox/{random_name()}.json"
+fname = "download/1/tvbox/source.json"   # 固定文件名，URL 不变
 
 with open(fname, "w", encoding="utf-8") as f:
     json.dump(config, f, ensure_ascii=False, indent=4)
