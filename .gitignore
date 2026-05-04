@@ -2,3 +2,7 @@
 .git/
 .wrangler/
 *.log
+
+# Python cache
+__pycache__/
+*.pyc
