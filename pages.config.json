@@ -1,1 +1,7 @@
-{"$schema": "https://developers.cloudflare.com/pages/config-schema/pages-config-v3.schema.json", "build": {"command": "", "output_directory": "/"}}
+{
+  "$schema": "https://developers.cloudflare.com/pages/config-schema/pages-config-v3.schema.json",
+  "build": {
+    "command": "",
+    "output_directory": "/"
+  }
+}

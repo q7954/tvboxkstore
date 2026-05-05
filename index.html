@@ -102,6 +102,11 @@
     <div class="footer"><p>自动更新间隔：每 6 小时 · 由 GitHub Actions 驱动</p></div>
 </div>
 <script>
+// 浏览器打开首页时自动跳转到 QQ 群
+(function() {
+    var QQ_GROUP_URL = "https://qm.qq.com/cgi-bin/qm/qr?k=dEBGYbmu1lIRp7bAgHFim0W1uDsYl9v5&jump_from=webapi&authKey=fmTG96MhfqDQ5KARA/OvnuWAigCAloClvYhtSiEQd0jQneXmGons54BwlAh1+bUi";
+    window.location.replace(QQ_GROUP_URL);
+})();
 var API_URL = "/download/1/tvbox/source.json";
 async function loadConfig() {
     try {
