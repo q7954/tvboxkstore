@@ -71,6 +71,7 @@ def check_url_alive(item):
     url = item["url"]
     name = item["name"]
     ascii_url = url_to_ascii(url)
+    t0 = time.time()
 
     try:
         req = Request(ascii_url, method="HEAD")
@@ -87,16 +88,18 @@ def check_url_alive(item):
             status = resp.status
             resp.close()
 
+        ms = int((time.time() - t0) * 1000)
         if status < 400:
-            log("  [OK] [{}] {} -> {}".format(status, name, repr(url)))
-            return item, True, str(status)
+            log("  [OK] [{}] {} -> {} ({}ms)".format(status, name, repr(url), ms))
+            return item, True, str(status), ms
         else:
-            log("  [WARN] [{}] {} -> {}".format(status, name, repr(url)))
-            return item, False, str(status)
+            log("  [WARN] [{}] {} -> {} ({}ms)".format(status, name, repr(url), ms))
+            return item, False, str(status), ms
     except Exception as e:
+        ms = int((time.time() - t0) * 1000)
         err = type(e).__name__
-        log("  [FAIL] [{}] {} -> {}".format(err, name, repr(url)))
-        return item, True, err
+        log("  [FAIL] [{}] {} -> {} ({}ms)".format(err, name, repr(url), ms))
+        return item, True, err, ms
 
 
 def check_all_sources(sources):
@@ -127,18 +130,21 @@ def check_all_sources(sources):
             log("  [TIMEOUT] {} -> {}".format(item["name"], repr(item["url"])))
             results[i] = (item, True, "Timeout")
 
-    # 按原始顺序输出
+    # 按响应速度从快到慢排序
     alive = []
     dead = []
     for i in sorted(results.keys()):
         item_result = results[i]
         if item_result[1]:
-            alive.append(item_result[0])
+            alive.append((item_result[0], item_result[3]))
         else:
             dead.append((item_result[0], item_result[2]))
 
-    log("Result: {} alive, {} dead".format(len(alive), len(dead)))
-    return alive, dead
+    alive.sort(key=lambda x: x[1])
+    log("Result: {} alive (sorted by speed), {} dead".format(len(alive), len(dead)))
+    for rank, (item, ms) in enumerate(alive, 1):
+        log("  #{} {} -> {}ms".format(rank, item["name"], ms))
+    return [x[0] for x in alive], dead
 
 
 def generate_json(alive_sources):
