@@ -30,17 +30,20 @@ NOTICE_TEXT = (
 )
 
 CANDIDATE_SOURCES = [
-    {"url": "https://tv.菜妮丝.top",                     "name": "小苹果"},
+    {"url": "https://tv.菜妮丝.top",                     "name": "杰翔"},
     {"url": "http://tvbox.王二小放牛娃.top",              "name": "王二小"},
     {"url": "http://肥猫.com",                            "name": "肥猫"},
+    {"url": "http://feimao.pro",                          "name": "肥猫2"},
+    {"url": "https://6296.kstore.vip/fm.gif",             "name": "肥猫3"},
     {"url": "https://盒子迷.top/禁止贩卖",                 "name": "盒子迷"},
-    {"url": "https://tv.菜妮丝.top",                      "name": "菜妮丝线路"},
+    {"url": "https://tv.菜妮丝.top",                      "name": "菜妮丝"},
     {"url": "https://gh-proxy.com/https://raw.githubusercontent.com/guot55/yg/main/pg/bh.json", "name": "寳盒"},
-    {"url": "http://www.饭太硬.com/tv",                   "name": "饭太硬1"},
+    {"url": "http://www.饭太硬.cc/tv",                    "name": "饭太硬1"},
     {"url": "http://www.饭太硬.net/tv",                   "name": "饭太硬2"},
     {"url": "http://www.饭太硬.art/tv",                   "name": "饭太硬3"},
     {"url": "http://fty.xxooo.cf/tv",                     "name": "饭太硬4"},
     {"url": "http://fty.888484.xyz/tv",                   "name": "饭太硬5"},
+    {"url": "http://fty.333232.xyz/tv",                   "name": "饭太硬6"},
 ]
 
 TIMEOUT = 8
