@@ -23,7 +23,7 @@ function jsonResponse(data, status = 200) {
 // Password validation
 function verifyAuth(request) {
   const authHeader = request.headers.get("Authorization") || "";
-  const adminPass = typeof ADMIN_PASSWORD !== "undefined" ? ADMIN_PASSWORD : "tvbox2024";
+  const adminPass = typeof ADMIN_PASSWORD !== "undefined" ? ADMIN_PASSWORD : "admin";
 
   if (authHeader === "Bearer " + adminPass) {
     return true;
@@ -34,7 +34,7 @@ function verifyAuth(request) {
 // Simple hash for session token (not crypto-grade, but sufficient for this use case)
 async function hashToken(token) {
   const encoder = new TextEncoder();
-  const data = encoder.encode(token + (typeof ADMIN_PASSWORD !== "undefined" ? ADMIN_PASSWORD : "tvbox2024"));
+  const data = encoder.encode(token + (typeof ADMIN_PASSWORD !== "undefined" ? ADMIN_PASSWORD : "admin"));
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
