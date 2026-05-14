@@ -1,6 +1,5 @@
 import sys
 import os
-import re
 import json
 import time
 import concurrent.futures
@@ -65,7 +64,6 @@ def check_speed_china(url):
         data = json.loads(resp.read().decode("utf-8"))
         resp.close()
         if data.get("code") == 200 and data.get("data"):
-            # data 格式: "681ms"
             ms_str = str(data["data"]).replace("ms", "").strip()
             return int(ms_str)
     except Exception as e:
@@ -76,7 +74,7 @@ def check_speed_china(url):
 def check_all_china_speeds(sources):
     """阶段1：通过国内 API 批量检测所有线路的国内延迟"""
     log("Phase 1: China speed test for {} sources...".format(len(sources)))
-    speed_map = {}  # name -> china_ms
+    speed_map = {}
 
     for item in sources:
         name = item["name"]
@@ -120,10 +118,8 @@ def url_to_ascii(url):
         parsed = urlparse(url)
         if not parsed.hostname:
             return url
-        # 域名用 IDNA 编码
         ascii_host = parsed.hostname.encode("idna").decode("ascii")
         port_str = ":" + str(parsed.port) if parsed.port else ""
-        # 路径和查询参数中的非 ASCII 字符用 percent-encoding
         path = quote(parsed.path or "", safe="/")
         query = "?" + quote(parsed.query, safe="&=") if parsed.query else ""
         return "{}://{}{}{}{}".format(parsed.scheme, ascii_host, port_str, path, query)
@@ -132,88 +128,33 @@ def url_to_ascii(url):
         return url
 
 
-def is_valid_tvbox_content(content_type, data):
-    """判断返回的内容是否可能是有效的 TVBox 配置（而非普通网页）。
-
-    TVBox 配置的有效格式：
-    - JSON 对象（直接返回配置）
-    - Base64 编码的文本（编码后的 JSON 配置）
-    - 二进制伪装文件（.bmp/.gif/.jpg 等后缀，实际内容是 base64 或 JSON）
-    - 纯文本配置
-
-    无效内容：
-    - HTML 网页（普通网页、错误页、跳转页）
-    """
-    if not data:
-        return False, "empty"
-
-    # 先检查内容本身是否是有效格式（JSON/base64/二进制），再判断 Content-Type
-    # 这样即使服务器错误地返回 text/html 也不会误杀 JSON 配置
-    sample = data[:200]
-    try:
-        text = sample.decode("utf-8", errors="replace").strip()
-    except Exception:
-        # 二进制内容，可能是伪装文件，视为有效
-        return True, "binary"
-
-    text_lower = text.lower()
-    # 如果内容以 JSON 的 { 或 [ 开头，是有效配置（无视 Content-Type）
-    if text.startswith("{") or text.startswith("["):
-        return True, "json_like"
-
-    # 如果内容看起来是 base64（纯字母数字+/=且长度>20），视为有效
-    if len(text) > 20 and re.match(r'^[A-Za-z0-9+/=\s]+$', text):
-        return True, "base64_like"
-
-    # 检查 Content-Type: text/html
-    ct = (content_type or "").lower()
-    if "text/html" in ct:
-        return False, "html_content_type"
-
-    # 检查内容是否包含 HTML 标签
-    html_markers = ["<html", "<head", "<!doctype", "<body", "<meta ", "<script"]
-    for marker in html_markers:
-        if marker in text_lower:
-            return False, "html_content"
-
-    return True, "ok"
-
-
 def check_url_alive(item):
+    """HTTP 连通性检测：HTTP < 400 + 非空响应 = 存活。
+
+    不做内容格式验证，因为 GitHub Actions 美国节点访问国内 CDN 时
+    经常返回 HTML 劫持页（区域限制），不代表国内用户也无法使用。
+    """
     url = item["url"]
     name = item["name"]
     ascii_url = url_to_ascii(url)
     t0 = time.time()
 
     try:
-        # GET 请求并跟随重定向，检查是否有有效响应内容
         get_req = Request(ascii_url, method="GET")
         get_req.add_header("User-Agent", "Mozilla/5.0")
         resp = urlopen(get_req, timeout=TIMEOUT)
         status = resp.status
-        content_type = resp.headers.get("Content-Type", "")
         data = resp.read()
         resp.close()
 
         ms = int((time.time() - t0) * 1000)
 
-        content_len = len(data)
-        if content_len == 0:
+        if len(data) > 0:
+            log("  [OK] [{}] {} -> {} ({}ms, {}bytes)".format(status, name, repr(url), ms, len(data)))
+            return item, True, str(status), ms
+        else:
             log("  [WARN] [{}] {} -> {} ({}ms, empty)".format(status, name, repr(url), ms))
             return item, False, "empty_response", ms
-
-        # 验证内容是否为有效 TVBox 配置
-        valid, reason = is_valid_tvbox_content(content_type, data)
-        if not valid:
-            snippet = data[:100].decode("utf-8", errors="replace").strip()
-            log("  [INVALID] [{}] {} -> {} ({}ms, {}bytes, {}): {}".format(
-                status, name, repr(url), ms, content_len, reason, snippet[:60]))
-            return item, False, "invalid_content({})".format(reason), ms
-
-        # 取前100字节作为内容摘要用于日志
-        snippet = data[:100].decode("utf-8", errors="replace").strip()
-        log("  [OK] [{}] {} -> {} ({}ms, {}bytes)".format(status, name, repr(url), ms, content_len))
-        return item, True, str(status), ms
     except Exception as e:
         ms = int((time.time() - t0) * 1000)
         err = type(e).__name__
@@ -222,17 +163,14 @@ def check_url_alive(item):
 
 
 def check_all_sources(sources, china_speed_map=None):
-    """两阶段验证策略：
-
-    由于 GitHub Actions 运行在美国，很多国内 CDN 对美国 IP 返回 HTML 劫持页，
-    导致内容验证误杀大量实际在国内可用的线路。
+    """检测所有线路的可用性。
 
     策略：
-    - 国内测速成功的线路（china_speed_map 中有数据）→ 直接视为存活，跳过美国内容验证
-    - 国内测速失败的线路 → 走美国内容验证（HTTP 状态 + 非空 + 非HTML）
-    - 两种路径都失败的 → 放入 backup_urls
+    - 国内测速成功的线路 -> 直接视为存活（国内能用就是能用）
+    - 国内测速失败的线路 -> 走 HTTP 连通性检测（超时/DNS失败/HTTP错误 = 死亡）
+    - 只有 HTTP 请求异常的才放入 backup_urls
     """
-    # 分两类：国内能测速的 vs 需要美国验证的
+    # 国内测速成功的直接存活
     need_us_check = []
     alive_from_china = []
 
@@ -240,16 +178,15 @@ def check_all_sources(sources, china_speed_map=None):
         name = item["name"]
         china_ms = china_speed_map.get(name) if china_speed_map else None
         if china_ms is not None:
-            # 国内测速成功 → 直接视为存活
             alive_from_china.append((i, item, china_ms))
-            log("  [CN_ALIVE] {} -> {}ms (skipped US content check)".format(name, china_ms))
+            log("  [CN_ALIVE] {} -> {}ms (skipped US check)".format(name, china_ms))
         else:
             need_us_check.append((i, item))
 
-    log("Phase 2: US content validation for {} sources ({} already alive from CN test)...".format(
+    log("Phase 2: HTTP connectivity check for {} sources ({} already alive from CN)...".format(
         len(need_us_check), len(alive_from_china)))
 
-    # 对需要美国验证的线路进行内容检测
+    # 对国内测速失败的线路做 HTTP 连通性检测
     results = {}
     if need_us_check:
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
@@ -274,7 +211,7 @@ def check_all_sources(sources, china_speed_map=None):
                 log("  [TIMEOUT] {} -> {}".format(item["name"], repr(item["url"])))
                 results[i] = (item, False, "Timeout", 99999)
 
-    # 合并结果：国内存活的 + 美国验证存活的
+    # 合并结果
     alive = []
     dead = []
     for i, item, china_ms in alive_from_china:
@@ -282,13 +219,12 @@ def check_all_sources(sources, china_speed_map=None):
     for i in sorted(results.keys()):
         item_result = results[i]
         item = item_result[0]
-        name = item["name"]
         if item_result[1]:
             alive.append((item, item_result[3]))
         else:
             dead.append((item, item_result[2]))
 
-    # 按延迟从快到慢排序
+    # 按延迟排序
     alive.sort(key=lambda x: x[1])
     log("Result: {} alive (sorted by speed), {} backup".format(len(alive), len(dead)))
     for rank, (item, ms) in enumerate(alive, 1):
@@ -302,7 +238,7 @@ def generate_json(alive_sources, dead_sources):
     config = {
         "notice": NOTICE_TEXT,
         "urls": alive_sources,
-        "backup_urls": [x[0] for x in dead_sources]  # 临时故障线路放入备用，下次聚合可能恢复
+        "backup_urls": [x[0] for x in dead_sources]
     }
     out_dir = "download/1/tvbox"
     os.makedirs(out_dir, exist_ok=True)
@@ -316,18 +252,17 @@ def generate_json(alive_sources, dead_sources):
 if __name__ == "__main__":
     t0 = time.time()
     try:
-        # 加载内置线路 + 自定义接口
         custom_sources = load_custom_sources()
         all_sources = CANDIDATE_SOURCES + custom_sources
         log("Total sources: {} (built-in: {}, custom: {})".format(
             len(all_sources), len(CANDIDATE_SOURCES), len(custom_sources)))
 
-        # 阶段1：国内节点测速排序
+        # 阶段1：国内节点测速
         china_speed_map = check_all_china_speeds(all_sources)
         log("China speed test done: {}/{} sources got CN latency".format(
             len(china_speed_map), len(all_sources)))
 
-        # 阶段2：内容有效性验证 + 按国内速度排序
+        # 阶段2：HTTP 连通性检测 + 排序
         alive_sources, dead_sources = check_all_sources(all_sources, china_speed_map)
         fname = generate_json(alive_sources, dead_sources)
         with open(fname, "r", encoding="utf-8") as f:
