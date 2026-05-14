@@ -44,6 +44,7 @@ CANDIDATE_SOURCES = [
     {"url": "http://fty.xxooo.cf/tv",                     "name": "饭太硬4"},
     {"url": "http://fty.888484.xyz/tv",                   "name": "饭太硬5"},
     {"url": "http://fty.333232.xyz/tv",                   "name": "饭太硬6"},
+    {"url": "https://raw.atomgit.com/xxxooo/fan/blobs/cef5f441c422cffe4852e0fc8b102f9be6d2bb2b/in.bmp", "name": "饭太硬江苏郑州"},
 ]
 
 TIMEOUT = 8
