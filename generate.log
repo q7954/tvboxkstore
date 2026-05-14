@@ -1,0 +1,38 @@
+=== generate.py START ===
+Python 3.11
+Loaded 0 custom sources from custom_sources.json
+Total sources: 15 (built-in: 15, custom: 0)
+Scanning 15 sources (timeout 8s, workers 10)...
+  [FAIL] [UnicodeEncodeError] 盒子迷 -> 'https://盒子迷.top/禁止贩卖' (79ms)
+  [OK] [200] 肥猫 -> 'http://肥猫.com' (130ms)
+  [OK] [200] 寳盒 -> 'https://gh-proxy.com/https://raw.githubusercontent.com/guot55/yg/main/pg/bh.json' (289ms)
+  [OK] [200] 饭太硬3 -> 'http://www.饭太硬.art/tv' (423ms)
+  [OK] [200] 肥猫2 -> 'http://feimao.pro' (576ms)
+  [OK] [200] 菜妮丝 -> 'https://tv.菜妮丝.top' (576ms)
+  [OK] [200] 杰翔 -> 'https://tv.菜妮丝.top' (592ms)
+  [FAIL] [HTTPError] 肥猫3 -> 'https://6296.kstore.vip/fm.gif' (756ms)
+  [OK] [200] 饭太硬2 -> 'http://www.饭太硬.net/tv' (795ms)
+  [OK] [200] 饭太硬5 -> 'http://fty.888484.xyz/tv' (671ms)
+  [OK] [200] 饭太硬4 -> 'http://fty.xxooo.cf/tv' (943ms)
+  [OK] [200] 饭太硬6 -> 'http://fty.333232.xyz/tv' (703ms)
+  [OK] [200] 饭太硬江苏郑州 -> 'https://raw.atomgit.com/xxxooo/fan/blobs/cef5f441c422cffe4852e0fc8b102f9be6d2bb2b/in.bmp' (974ms)
+  [OK] [200] 饭太硬1 -> 'http://www.饭太硬.cc/tv' (1713ms)
+  [OK] [200] 王二小 -> 'http://tvbox.王二小放牛娃.top' (1885ms)
+Result: 13 alive (sorted by speed), 2 dead
+  #1 肥猫 -> 130ms
+  #2 寳盒 -> 289ms
+  #3 饭太硬3 -> 423ms
+  #4 肥猫2 -> 576ms
+  #5 菜妮丝 -> 576ms
+  #6 杰翔 -> 592ms
+  #7 饭太硬5 -> 671ms
+  #8 饭太硬6 -> 703ms
+  #9 饭太硬2 -> 795ms
+  #10 饭太硬4 -> 943ms
+  #11 饭太硬江苏郑州 -> 974ms
+  #12 饭太硬1 -> 1713ms
+  #13 王二小 -> 1885ms
+Generated: download/1/tvbox/source.json (13 alive, 2 backup)
+JSON verified OK: 13 entries, notice 104 chars
+Done in 2.0s
+=== END ===
