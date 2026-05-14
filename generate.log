@@ -194,3 +194,5 @@ Generated: download/1/tvbox/source.json (13 alive, 2 backup)
 JSON verified OK: 13 entries, notice 104 chars
 Done in 40.7s
 === END ===
+=== generate.py START ===
+Python 3.14

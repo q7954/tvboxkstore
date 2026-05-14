@@ -131,6 +131,44 @@ def url_to_ascii(url):
         return url
 
 
+def is_valid_tvbox_content(content_type, data):
+    """判断返回的内容是否可能是有效的 TVBox 配置（而非普通网页）。
+
+    TVBox 配置的有效格式：
+    - JSON 对象（直接返回配置）
+    - Base64 编码的文本（编码后的 JSON 配置）
+    - 二进制伪装文件（.bmp/.gif/.jpg 等后缀，实际内容是 base64 或 JSON）
+    - 纯文本配置
+
+    无效内容：
+    - HTML 网页（普通网页、错误页、跳转页）
+    """
+    if not data:
+        return False, "empty"
+
+    # 检查 Content-Type: text/html 基本可以确定不是 TVBox 配置
+    ct = (content_type or "").lower()
+    if "text/html" in ct:
+        return False, "html_content_type"
+
+    # 检查内容前 200 字节是否包含 HTML 标签
+    # 有些服务器不设 Content-Type 或设为 text/plain 但实际返回 HTML
+    sample = data[:200]
+    try:
+        text = sample.decode("utf-8", errors="replace").strip().lower()
+    except Exception:
+        # 二进制内容，可能是伪装文件，视为有效
+        return True, "binary"
+
+    html_markers = ["<html", "<head", "<!doctype", "<body", "<meta ", "<script"]
+    for marker in html_markers:
+        if marker in text:
+            return False, "html_content"
+
+    # 内容不以 HTML 标签开头，可能是 JSON、base64 或其他有效格式
+    return True, "ok"
+
+
 def check_url_alive(item):
     url = item["url"]
     name = item["name"]
@@ -143,21 +181,29 @@ def check_url_alive(item):
         get_req.add_header("User-Agent", "Mozilla/5.0")
         resp = urlopen(get_req, timeout=TIMEOUT)
         status = resp.status
+        content_type = resp.headers.get("Content-Type", "")
         data = resp.read()
         resp.close()
 
         ms = int((time.time() - t0) * 1000)
 
-        # 判断是否有有效内容（非空响应）
         content_len = len(data)
-        if content_len > 0:
-            # 取前100字节作为内容摘要用于日志
-            snippet = data[:100].decode("utf-8", errors="replace").strip()
-            log("  [OK] [{}] {} -> {} ({}ms, {}bytes)".format(status, name, repr(url), ms, content_len))
-            return item, True, str(status), ms
-        else:
+        if content_len == 0:
             log("  [WARN] [{}] {} -> {} ({}ms, empty)".format(status, name, repr(url), ms))
             return item, False, "empty_response", ms
+
+        # 验证内容是否为有效 TVBox 配置
+        valid, reason = is_valid_tvbox_content(content_type, data)
+        if not valid:
+            snippet = data[:100].decode("utf-8", errors="replace").strip()
+            log("  [INVALID] [{}] {} -> {} ({}ms, {}bytes, {}): {}".format(
+                status, name, repr(url), ms, content_len, reason, snippet[:60]))
+            return item, False, "invalid_content({})".format(reason), ms
+
+        # 取前100字节作为内容摘要用于日志
+        snippet = data[:100].decode("utf-8", errors="replace").strip()
+        log("  [OK] [{}] {} -> {} ({}ms, {}bytes)".format(status, name, repr(url), ms, content_len))
+        return item, True, str(status), ms
     except Exception as e:
         ms = int((time.time() - t0) * 1000)
         err = type(e).__name__
