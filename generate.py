@@ -49,7 +49,32 @@ CANDIDATE_SOURCES = [
 
 TIMEOUT = 8
 MAX_WORKERS = 10
+CUSTOM_SOURCES_FILE = "custom_sources.json"
 # ============================================================
+
+
+def load_custom_sources():
+    """从 custom_sources.json 读取用户自定义接口"""
+    if not os.path.exists(CUSTOM_SOURCES_FILE):
+        log("Custom sources file not found: {}".format(CUSTOM_SOURCES_FILE))
+        return []
+    try:
+        with open(CUSTOM_SOURCES_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, list):
+            log("  [WARN] custom_sources.json is not an array, skipping")
+            return []
+        sources = []
+        for item in data:
+            if isinstance(item, dict) and "url" in item and "name" in item:
+                sources.append({"url": item["url"], "name": item["name"]})
+            else:
+                log("  [WARN] skipping invalid custom source: {}".format(repr(item)))
+        log("Loaded {} custom sources from {}".format(len(sources), CUSTOM_SOURCES_FILE))
+        return sources
+    except Exception as e:
+        log("  [WARN] failed to load {}: {}".format(CUSTOM_SOURCES_FILE, str(e)))
+        return []
 
 
 def url_to_ascii(url):
@@ -161,7 +186,13 @@ def generate_json(alive_sources):
 if __name__ == "__main__":
     t0 = time.time()
     try:
-        alive_sources, dead_sources = check_all_sources(CANDIDATE_SOURCES)
+        # 加载内置线路 + 自定义接口
+        custom_sources = load_custom_sources()
+        all_sources = CANDIDATE_SOURCES + custom_sources
+        log("Total sources: {} (built-in: {}, custom: {})".format(
+            len(all_sources), len(CANDIDATE_SOURCES), len(custom_sources)))
+
+        alive_sources, dead_sources = check_all_sources(all_sources)
         fname = generate_json(alive_sources)
         with open(fname, "r", encoding="utf-8") as f:
             data = json.load(f)
