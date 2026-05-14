@@ -32,7 +32,6 @@ NOTICE_TEXT = (
 CANDIDATE_SOURCES = [
     {"url": "https://tv.菜妮丝.top",                     "name": "杰翔"},
     {"url": "http://tvbox.王二小放牛娃.top",              "name": "王二小"},
-    {"url": "http://肥猫.com",                            "name": "肥猫"},
     {"url": "http://feimao.pro",                          "name": "肥猫2"},
     {"url": "https://6296.kstore.vip/fm.gif",             "name": "肥猫3"},
     {"url": "https://盒子迷.top/禁止贩卖",                 "name": "盒子迷"},
