@@ -5,7 +5,7 @@ import time
 import concurrent.futures
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 import traceback
 
 LOG_FILE = "generate.log"
@@ -82,10 +82,12 @@ def url_to_ascii(url):
         parsed = urlparse(url)
         if not parsed.hostname:
             return url
+        # 域名用 IDNA 编码
         ascii_host = parsed.hostname.encode("idna").decode("ascii")
         port_str = ":" + str(parsed.port) if parsed.port else ""
-        path = parsed.path or ""
-        query = "?" + parsed.query if parsed.query else ""
+        # 路径和查询参数中的非 ASCII 字符用 percent-encoding
+        path = quote(parsed.path or "", safe="/")
+        query = "?" + quote(parsed.query, safe="&=") if parsed.query else ""
         return "{}://{}{}{}{}".format(parsed.scheme, ascii_host, port_str, path, query)
     except Exception as e:
         log("  [WARN] url_to_ascii failed for {}: {}".format(repr(url), str(e)))
