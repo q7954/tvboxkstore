@@ -10,7 +10,68 @@ const RAW_BASE    = "https://raw.githubusercontent.com/" + REPO_OWNER + "/" + RE
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" };
 function jsonResponse(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...corsHeaders } }); }
 function verifyAuth(request) { const authHeader = request.headers.get("Authorization") || ""; const adminPass = typeof ADMIN_PASSWORD !== "undefined" ? ADMIN_PASSWORD : "admin"; return authHeader === "Bearer " + adminPass; }
-async function readFile() { try { const res = await fetch(RAW_BASE); if (res.ok) return await res.json(); } catch(e) {} return []; }
-async function writeFile(token, content, sha) { var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(content, null, 2)))); var bodyObj = { message: "chore: 更新自定义接口列表", content: encoded, sha: sha }; const res = await fetch(GITHUB_API + "/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + FILE_PATH, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json", Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "tvbox-kstore-pages/1.0" }, body: JSON.stringify(bodyObj) }); if (!res.ok) { var errText = await res.text(); throw new Error("GitHub " + res.status + ": " + errText.substring(0, 300)); } return await res.json(); }
-export async function onRequestGet(context) { const { request } = context; if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders }); if (!verifyAuth(request)) return jsonResponse({ error: "未授权" }, 401); const token = context.env && context.env.GITHUB_TOKEN; if (!token) return jsonResponse({ error: "GITHUB_TOKEN 未配置" }, 500); try { const sources = await readFile(); return jsonResponse({ success: true, sources, storage: "github" }); } catch (e) { return jsonResponse({ success: false, error: "读取失败: " + e.message }, 500); } }
-export async function onRequestPost(context) { const { request } = context; if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders }); if (!verifyAuth(request)) return jsonResponse({ error: "未授权" }, 401); const token = context.env && context.env.GITHUB_TOKEN; if (!token) return jsonResponse({ error: "GITHUB_TOKEN 未配置" }, 500); try { const body = await request.json(); const { action, name, url, id } = body; if (action === "login") return jsonResponse({ success: true, token: "verified" }); if (action === "add") { if (!name || !url) return jsonResponse({ error: "名称和地址不能为空" }, 400); try { new URL(url); } catch { return jsonResponse({ error: "地址格式不正确" }, 400); } const sources = await readFile(); const newSource = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name.trim(), url: url.trim(), created_at: new Date().toISOString() }; sources.push(newSource); const shaRes = await fetch(GITHUB_API + "/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + FILE_PATH, { headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" } }); if (!shaRes.ok) throw new Error("获取文件 SHA 失败: " + shaRes.status); const shaData = await shaRes.json(); const sha = shaData.sha; await writeFile(token, sources, sha); return jsonResponse({ success: true, source: newSource, storage: "github" }); } if (action === "delete") { if (!id) return jsonResponse({ error: "缺少接口ID" }, 400); let sources = await readFile(); const before = sources.length; sources = sources.filter(s => s.id !== id); if (sources.length === before) return jsonResponse({ error: "未找到该接口" }, 404); const shaRes = await fetch(GITHUB_API + "/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + FILE_PATH, { headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" } }); if (!shaRes.ok) throw new Error("获取文件 SHA 失败: " + shaRes.status); const shaData = await shaRes.json(); const sha = shaData.sha; await writeFile(token, sources, sha); return jsonResponse({ success: true, remaining: sources.length }); } return jsonResponse({ error: "未知操作" }, 400); } catch (e) { return jsonResponse({ success: false, error: "操作失败: " + e.message }, 500); } }
+async function readSources() { try { const res = await fetch(RAW_BASE); if (res.ok) return await res.json(); } catch(e) {} return []; }
+async function ghApi(token, path, method, body) {
+  var url = GITHUB_API + path + (path.includes("?") ? "&" : "?") + "access_token=" + encodeURIComponent(token);
+  var opts = { method: method, headers: { "Content-Type": "application/json", Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" } };
+  if (body) opts.body = JSON.stringify(body);
+  var res = await fetch(url, opts);
+  var text = await res.text();
+  if (!res.ok) throw new Error("GitHub " + res.status + ": " + text.substring(0, 200));
+  if (text) return JSON.parse(text);
+  return null;
+}
+async function writeFile(token, content, sha) {
+  var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(content, null, 2))));
+  await ghApi(token, "/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + FILE_PATH, "PUT", { message: "chore: 更新自定义接口列表", content: encoded, sha: sha });
+}
+async function getSha(token) {
+  var data = await ghApi(token, "/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + FILE_PATH, "GET", null);
+  return data && data.sha;
+}
+export async function onRequestGet(context) {
+  const { request } = context;
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (!verifyAuth(request)) return jsonResponse({ error: "未授权" }, 401);
+  const token = context.env && context.env.GITHUB_TOKEN;
+  if (!token) return jsonResponse({ error: "GITHUB_TOKEN 未配置" }, 500);
+  try {
+    const sources = await readSources();
+    return jsonResponse({ success: true, sources, storage: "github" });
+  } catch (e) { return jsonResponse({ success: false, error: "读取失败: " + e.message }, 500); }
+}
+export async function onRequestPost(context) {
+  const { request } = context;
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (!verifyAuth(request)) return jsonResponse({ error: "未授权" }, 401);
+  const token = context.env && context.env.GITHUB_TOKEN;
+  if (!token) return jsonResponse({ error: "GITHUB_TOKEN 未配置" }, 500);
+  try {
+    const body    = await request.json();
+    const { action, name, url, id } = body;
+    if (action === "login") return jsonResponse({ success: true, token: "verified" });
+    if (action === "add") {
+      if (!name || !url) return jsonResponse({ error: "名称和地址不能为空" }, 400);
+      try { new URL(url); } catch { return jsonResponse({ error: "地址格式不正确" }, 400); }
+      const sources = await readSources();
+      const newSource = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name.trim(), url: url.trim(), created_at: new Date().toISOString() };
+      sources.push(newSource);
+      const sha = await getSha(token);
+      if (!sha) return jsonResponse({ error: "无法获取文件SHA，请检查 Token 权限" }, 500);
+      await writeFile(token, sources, sha);
+      return jsonResponse({ success: true, source: newSource, storage: "github" });
+    }
+    if (action === "delete") {
+      if (!id) return jsonResponse({ error: "缺少接口ID" }, 400);
+      let sources = await readSources();
+      const before = sources.length;
+      sources = sources.filter(s => s.id !== id);
+      if (sources.length === before) return jsonResponse({ error: "未找到该接口" }, 404);
+      const sha = await getSha(token);
+      if (!sha) return jsonResponse({ error: "无法获取文件SHA" }, 500);
+      await writeFile(token, sources, sha);
+      return jsonResponse({ success: true, remaining: sources.length });
+    }
+    return jsonResponse({ error: "未知操作" }, 400);
+  } catch (e) { return jsonResponse({ success: false, error: "操作失败: " + e.message }, 500); }
+}
