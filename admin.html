@@ -289,6 +289,47 @@
         .password-toggle:hover { color: #888; }
         .password-wrapper input { padding-right: 46px; }
 
+        /* Log viewer */
+        .log-modal {
+            display: none; position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+            align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .log-modal.open { display: flex; }
+        .log-panel {
+            background: #1a1a2e; border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px; width: 90%; max-width: 720px; max-height: 80vh;
+            display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+        }
+        .log-panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 22px; border-bottom: 1px solid rgba(255,255,255,0.06);
+            flex-shrink: 0;
+        }
+        .log-panel-header h3 { font-size: 15px; color: #fff; margin: 0; }
+        .log-panel-actions { display: flex; gap: 8px; }
+        .btn-sm {
+            padding: 5px 14px; font-size: 12px; border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06);
+            color: #aaa; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-sm:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        .btn-sm.close-btn { border-color: rgba(239,68,68,0.3); color: #ef4444; background: rgba(239,68,68,0.08); }
+        .btn-sm.close-btn:hover { background: rgba(239,68,68,0.2); }
+        .log-content {
+            flex: 1; overflow-y: auto; padding: 16px 22px;
+            font-family: "Fira Code", "Cascadia Code", monospace;
+            font-size: 12px; line-height: 1.7; color: #8b949e;
+            white-space: pre-wrap; word-break: break-all;
+        }
+        .log-content .timestamp { color: #4ecdc4; }
+        .log-content .ok { color: #4ecdc4; }
+        .log-content .fail { color: #ef4444; }
+        .log-content .warn { color: #f59e0b; }
+        .log-content .cn { color: #a78bfa; }
+
         /* Responsive */
         @media (max-width: 640px) {
             .container { padding: 24px 16px; }
@@ -340,9 +381,9 @@
                 <div class="value blue" id="totalCount">-</div>
                 <div class="label">总线路数</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" style="cursor:pointer" onclick="viewLog()" title="点击查看完整日志">
                 <div class="value pink" id="lastUpdate">-</div>
-                <div class="label">上次更新</div>
+                <div class="label">上次更新 &#128221;</div>
             </div>
         </div>
 
@@ -377,6 +418,19 @@
         <div style="text-align: center; margin-top: 24px; font-size: 12px; color: #444;">
             TVBox Admin &copy; 杰翔易达
         </div>
+    </div>
+</div>
+
+<div class="log-modal" id="logModal">
+    <div class="log-panel">
+        <div class="log-panel-header">
+            <h3>&#128221; 构建日志</h3>
+            <div class="log-panel-actions">
+                <button class="btn-sm" onclick="refreshLog()">&#8635; 刷新</button>
+                <button class="btn-sm close-btn" onclick="closeLog()">&#10005; 关闭</button>
+            </div>
+        </div>
+        <div class="log-content" id="logContent"><span style="color:#666">加载中...</span></div>
     </div>
 </div>
 
@@ -524,18 +578,57 @@
             if (lr.ok) {
                 var lt = await lr.text();
                 var lines = lt.trim().split("\n");
+                // Find last "Timestamp: YYYY-MM-DD HH:MM:SS" line
+                var lastTs = null;
                 for (var i = lines.length-1; i>=0; i--) {
-                    if (lines[i].includes("Done in")) {
-                        var m = lines[i].match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
-                        document.getElementById("lastUpdate").textContent = m ? m[0].slice(5) : "近日";
-                        break;
-                    }
+                    var m = lines[i].match(/Timestamp: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
+                    if (m) { lastTs = m[1]; break; }
+                }
+                if (lastTs) {
+                    document.getElementById("lastUpdate").textContent = lastTs.slice(5);
+                } else {
+                    document.getElementById("lastUpdate").textContent = "近日";
                 }
             }
         } catch(e){ document.getElementById("lastUpdate").textContent="-"; }
     }
 
     document.getElementById("newUrl").addEventListener("keydown", function(e) { if (e.key==="Enter") addSource(); });
+
+    async function viewLog() {
+        var modal = document.getElementById("logModal");
+        var content = document.getElementById("logContent");
+        modal.classList.add("open");
+        content.innerHTML = '<span style="color:#666">加载中...</span>';
+        await refreshLog();
+    }
+
+    async function refreshLog() {
+        var content = document.getElementById("logContent");
+        try {
+            var r = await fetch("/generate.log");
+            if (!r.ok) { content.innerHTML = '<span style="color:#ef4444">加载失败</span>'; return; }
+            var text = await r.text();
+            // Syntax highlight
+            text = escHtml(text)
+                .replace(/Timestamp: ([\d-]+ [\d:]+)/g, '<span class="timestamp">Timestamp: $1</span>')
+                .replace(/\[OK\]/g, '<span class="ok">[OK]</span>')
+                .replace(/\[FAIL\]/g, '<span class="fail">[FAIL]</span>')
+                .replace(/\[WARN\]/g, '<span class="warn">[WARN]</span>')
+                .replace(/\[CN[_ALIVE]\]/g, '<span class="cn">[CN_ALIVE]</span>')
+                .replace(/(=== .*? ===)/g, '<span style="color:#ffd700">$1</span>')
+                .replace(/(Done in .*)/g, '<span style="color:#4ecdc4">$1</span>');
+            content.innerHTML = text;
+        } catch(e) { content.innerHTML = '<span style="color:#ef4444">加载失败: ' + escHtml(e.message) + '</span>'; }
+    }
+
+    function closeLog() {
+        document.getElementById("logModal").classList.remove("open");
+    }
+
+    document.getElementById("logModal").addEventListener("click", function(e) {
+        if (e.target === this) closeLog();
+    });
 </script>
 
 </body>
