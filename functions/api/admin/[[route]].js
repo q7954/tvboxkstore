@@ -5,6 +5,7 @@ export const config = { runtime: "edge" };
 const REPO_OWNER = "haonanren118";
 const REPO_NAME  = "tvbox-kstore";
 const FILE_PATH   = "custom_sources.json";
+const WORKFLOW_ID = "generate.yml";
 const GITHUB_API  = "https://api.github.com";
 const RAW_BASE    = "https://raw.githubusercontent.com/" + REPO_OWNER + "/" + REPO_NAME + "/main/" + FILE_PATH;
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" };
@@ -71,6 +72,30 @@ export async function onRequestPost(context) {
       if (!sha) return jsonResponse({ error: "无法获取文件SHA" }, 500);
       await writeFile(token, sources, sha);
       return jsonResponse({ success: true, remaining: sources.length });
+    }
+    if (action === "trigger") {
+      try {
+        await ghApi(token, `/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_ID}/dispatches`, "POST", { ref: "main" });
+        return jsonResponse({ success: true, message: "构建已触发，请等待约1-2分钟" });
+      } catch (e) {
+        return jsonResponse({ success: false, error: "触发失败: " + e.message }, 500);
+      }
+    }
+    if (action === "status") {
+      try {
+        const runs = await ghApi(token, `/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_ID}/runs?per_page=1`, "GET", null);
+        const latest = runs && runs.workflow_runs && runs.workflow_runs[0];
+        return jsonResponse({
+          success: true,
+          running: latest ? (latest.status === "in_progress" || latest.status === "queued") : false,
+          status: latest ? latest.status : "unknown",
+          conclusion: latest ? latest.conclusion : null,
+          run_id: latest ? latest.id : null,
+          updated_at: latest ? latest.updated_at : null
+        });
+      } catch (e) {
+        return jsonResponse({ success: false, error: e.message }, 500);
+      }
     }
     return jsonResponse({ error: "未知操作" }, 400);
   } catch (e) { return jsonResponse({ success: false, error: "操作失败: " + e.message }, 500); }
