@@ -599,11 +599,11 @@
 
     async function loadStats() {
         try {
-            var res = await fetch("/download/1/tvbox/source.json");
+            var res = await fetch("/download/1/tvbox/source.json?t=" + Date.now());
             if (res.ok) { var d = await res.json(); document.getElementById("totalCount").textContent = d.urls.length; }
         } catch(e){}
         try {
-            var lr = await fetch("/generate.log");
+            var lr = await fetch("/generate.log?t=" + Date.now());
             if (lr.ok) {
                 var lt = await lr.text();
                 var lines = lt.trim().split("\n");
@@ -702,7 +702,7 @@
     async function refreshLog() {
         var content = document.getElementById("logContent");
         try {
-            var r = await fetch("/generate.log");
+            var r = await fetch("/generate.log?t=" + Date.now());
             if (!r.ok) { content.innerHTML = '<span style="color:#ef4444">加载失败</span>'; return; }
             var text = await r.text();
             // Syntax highlight
